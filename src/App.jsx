@@ -5275,12 +5275,13 @@ const WorkTracking = ({ trucks, queue, detailMapByChannel = {}, masterLane = [] 
     const rows = sorted.map(t => {
       const q = getQ(t);
       const stdDiff = q?.entryTime && t.arrivedAt ? workTimeValue(t.arrivedAt) - workTimeValue(q.entryTime) : null;
+      const exitDiff = q?.exitTime && t.invoicedAt ? workTimeValue(t.invoicedAt) - workTimeValue(q.exitTime) : null;
       return {
         "ทะเบียน":               t.plate || "",
         "กลุ่มลูกค้า":           t.customerGroup || "",
         "STD เข้า":              q?.entryTime || "",
         "ACT เข้า":              t.arrivedAt || "",
-        "ต่าง STD (นาที)":       stdDiff ?? "",
+        "เข้าเร็ว/ช้า (นาที)":   stdDiff ?? "",
         "พิมพ์ใบเบิก":           t.pickingAt || "",
         "ตรวจอุณหภูมิรถ ชิ้นส่วน": t.qcLanes?.lane_parts?.doneAt || "",
         "QC ชิ้นส่วน":            t.sampleLanes?.lane_parts?.doneAt || "",
@@ -5294,6 +5295,7 @@ const WorkTracking = ({ trucks, queue, detailMapByChannel = {}, masterLane = [] 
         "ใบสรุป":                t.summaryPrintedAt || "",
         "Invoice":               t.invoicedAt || "",
         "STD ออก":               q?.exitTime || "",
+        "ออกเร็ว/ช้า (นาที)":    exitDiff ?? "",
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
