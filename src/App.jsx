@@ -81,14 +81,19 @@ const DATE_STR = () => {
 };
 const safePlate = p => String(p).replace(/[^a-zA-Z0-9]/g, "") || "unknown";
 
-const compressImage = file => new Promise((resolve, reject) => {
+const isHeicFile = file => /\.hei[cf]$/i.test(file.name || "") || /^image\/hei[cf]/i.test(file.type || "");
+
+const readAsDataUrl = blob => new Promise((resolve, reject) => {
   const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onerror = () => reject(new Error(`อ่านไฟล์รูปไม่สำเร็จ: ${file.name || ""}`));
-  reader.onload = ev => {
+  reader.onerror = () => reject(new Error(`อ่านไฟล์รูปไม่สำเร็จ: ${blob.name || ""}`));
+  reader.onload = ev => resolve(ev.target.result);
+  reader.readAsDataURL(blob);
+});
+
+const compressImage = file => new Promise((resolve, reject) => {
+  const drawAndCompress = dataUrl => {
     const img = new Image();
     img.onerror = () => reject(new Error(`ไฟล์รูปเสียหายหรือไม่รองรับ: ${file.name || ""}`));
-    img.src = ev.target.result;
     img.onload = () => {
       const canvas = document.createElement("canvas");
       let { width, height } = img;
@@ -103,7 +108,20 @@ const compressImage = file => new Promise((resolve, reject) => {
       ctx.drawImage(img, 0, 0, width, height);
       resolve(canvas.toDataURL("image/jpeg", 0.7));
     };
+    img.src = dataUrl;
   };
+
+  if (isHeicFile(file)) {
+    // ไฟล์ .heic/.heif (มักมาจาก iPhone) เบราว์เซอร์ไม่รองรับให้ <img> อ่านตรงๆ
+    // ต้องแปลงเป็น JPEG ด้วย heic2any ก่อน แล้วค่อยวาดลง canvas เหมือนไฟล์ปกติ
+    import("heic2any").then(({ default: heic2any }) => heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 }))
+      .then(result => readAsDataUrl(Array.isArray(result) ? result[0] : result))
+      .then(drawAndCompress)
+      .catch(() => reject(new Error(`ไม่สามารถแปลงไฟล์ HEIC ได้ กรุณาเปลี่ยนกล้องเป็นบันทึกภาพเป็น JPG แล้วลองใหม่: ${file.name || ""}`)));
+    return;
+  }
+
+  readAsDataUrl(file).then(drawAndCompress, reject);
 });
 
 async function uploadPhotos(folder, plate, photos) {
